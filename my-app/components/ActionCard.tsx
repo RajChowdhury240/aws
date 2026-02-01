@@ -31,6 +31,12 @@ export function ActionCard({ action, service }: ActionCardProps) {
     return `${service.service}:${name}`;
   };
 
+  // Safe accessors with defaults
+  const dependentActions = action.dependentActions || [];
+  const resources = action.resources || [];
+  const conditionKeys = action.conditionKeys || [];
+  const description = action.description || '';
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
       {/* Header - Always Visible */}
@@ -46,29 +52,29 @@ export function ActionCard({ action, service }: ActionCardProps) {
             <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getAccessLevelColor(action.accessLevel)}`}>
               {action.accessLevel}
             </span>
-            {action.dependentActions.length > 0 && (
+            {dependentActions.length > 0 && (
               <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-800 rounded-full border border-orange-200 flex items-center gap-1">
                 <Link2 className="w-3 h-3" />
-                {action.dependentActions.length} dependent
+                {dependentActions.length} dependent
               </span>
             )}
           </div>
           
           {/* Description */}
-          {action.description && (
+          {description && (
             <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-              {action.description}
+              {description}
             </p>
           )}
           
           <div className="flex items-center gap-3 text-sm text-gray-600 flex-wrap">
             <span className="flex items-center gap-1">
               <Layers className="w-4 h-4" />
-              {action.resources.length} resource{action.resources.length !== 1 ? 's' : ''}
+              {resources.length} resource{resources.length !== 1 ? 's' : ''}
             </span>
             <span className="flex items-center gap-1">
               <Shield className="w-4 h-4" />
-              {action.conditionKeys.length} condition key{action.conditionKeys.length !== 1 ? 's' : ''}
+              {conditionKeys.length} condition key{conditionKeys.length !== 1 ? 's' : ''}
             </span>
           </div>
         </div>
@@ -107,31 +113,31 @@ export function ActionCard({ action, service }: ActionCardProps) {
       {isExpanded && (
         <div className="px-4 pb-4 border-t border-gray-100">
           {/* Full Description */}
-          {action.description && (
+          {description && (
             <div className="mt-4">
               <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                 <FileText className="w-4 h-4" />
                 Description
               </h4>
               <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
-                {action.description}
+                {description}
               </p>
             </div>
           )}
 
           {/* Dependent Actions */}
-          {action.dependentActions.length > 0 && (
+          {dependentActions.length > 0 && (
             <div className="mt-4">
               <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                 <Link2 className="w-4 h-4" />
-                Dependent Actions ({action.dependentActions.length})
+                Dependent Actions ({dependentActions.length})
               </h4>
               <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
                 <p className="text-xs text-orange-700 mb-2">
                   These additional permissions are required to successfully call this action:
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {action.dependentActions.map((depAction) => (
+                  {dependentActions.map((depAction) => (
                     <code 
                       key={depAction}
                       className="text-xs px-2 py-1 rounded font-mono bg-white text-orange-800 border border-orange-200"
@@ -191,19 +197,19 @@ export function ActionCard({ action, service }: ActionCardProps) {
           </div>
 
           {/* Supported Resources */}
-          {action.supportsResourceLevelPermissions && action.resources.length > 0 && (
+          {action.supportsResourceLevelPermissions && resources.length > 0 && (
             <div className="mt-4">
               <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                 <Layers className="w-4 h-4" />
                 Supported Resources
               </h4>
               <div className="space-y-2">
-                {action.resources.map((resourceName) => {
+                {resources.map((resourceName) => {
                   const resource = service.resources.find(r => r.name === resourceName);
                   return (
                     <div key={resourceName} className="bg-gray-50 rounded-lg p-3">
                       <code className="text-sm font-semibold text-gray-900">{resourceName}</code>
-                      {resource && resource.arnFormats.length > 0 && (
+                      {resource && resource.arnFormats && resource.arnFormats.length > 0 && (
                         <div className="mt-1 space-y-1">
                           {resource.arnFormats.map((arn, idx) => (
                             <code key={idx} className="block text-xs text-gray-600 font-mono break-all bg-white px-2 py-1 rounded border">
@@ -220,14 +226,14 @@ export function ActionCard({ action, service }: ActionCardProps) {
           )}
 
           {/* Condition Keys */}
-          {action.conditionKeys.length > 0 && (
+          {conditionKeys.length > 0 && (
             <div className="mt-4">
               <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                 <Shield className="w-4 h-4" />
-                Condition Keys ({action.conditionKeys.length})
+                Condition Keys ({conditionKeys.length})
               </h4>
               <div className="flex flex-wrap gap-2">
-                {action.conditionKeys.map((key) => (
+                {conditionKeys.map((key) => (
                   <code 
                     key={key}
                     className={`text-xs px-2 py-1 rounded font-mono break-all ${
@@ -252,7 +258,7 @@ export function ActionCard({ action, service }: ActionCardProps) {
           <div className="mt-4 pt-4 border-t border-gray-200">
             <h4 className="text-sm font-medium text-gray-700 mb-2">Action Properties</h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {Object.entries(action.properties).map(([key, value]) => (
+              {Object.entries(action.properties || {}).map(([key, value]) => (
                 <div 
                   key={key}
                   className={`px-3 py-2 rounded text-sm ${
