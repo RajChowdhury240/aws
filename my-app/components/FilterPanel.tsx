@@ -53,6 +53,7 @@ export function FilterPanel({ filters, onFilterChange, services, totalResults, i
       hasResourceTag: null,
       hasTagKeys: null,
       supportsResourceLevel: null,
+      hasDependentActions: null,
     });
   }, [onFilterChange]);
 
@@ -72,7 +73,8 @@ export function FilterPanel({ filters, onFilterChange, services, totalResults, i
     filters.hasRequestTag !== null ||
     filters.hasResourceTag !== null ||
     filters.hasTagKeys !== null ||
-    filters.supportsResourceLevel !== null;
+    filters.supportsResourceLevel !== null ||
+    filters.hasDependentActions !== null;
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-6">

@@ -1,5 +1,5 @@
 import { IAMAction, IAMService } from '@/types/iam';
-import { ChevronDown, ChevronUp, Check, X, Tag, Layers, Shield } from 'lucide-react';
+import { ChevronDown, ChevronUp, Check, X, Tag, Layers, Shield, FileText, Link2 } from 'lucide-react';
 import { useState } from 'react';
 
 interface ActionCardProps {
@@ -46,7 +46,20 @@ export function ActionCard({ action, service }: ActionCardProps) {
             <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getAccessLevelColor(action.accessLevel)}`}>
               {action.accessLevel}
             </span>
+            {action.dependentActions.length > 0 && (
+              <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-800 rounded-full border border-orange-200 flex items-center gap-1">
+                <Link2 className="w-3 h-3" />
+                {action.dependentActions.length} dependent
+              </span>
+            )}
           </div>
+          
+          {/* Description */}
+          {action.description && (
+            <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+              {action.description}
+            </p>
+          )}
           
           <div className="flex items-center gap-3 text-sm text-gray-600 flex-wrap">
             <span className="flex items-center gap-1">
@@ -93,6 +106,44 @@ export function ActionCard({ action, service }: ActionCardProps) {
       {/* Expanded Content */}
       {isExpanded && (
         <div className="px-4 pb-4 border-t border-gray-100">
+          {/* Full Description */}
+          {action.description && (
+            <div className="mt-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Description
+              </h4>
+              <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                {action.description}
+              </p>
+            </div>
+          )}
+
+          {/* Dependent Actions */}
+          {action.dependentActions.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Link2 className="w-4 h-4" />
+                Dependent Actions ({action.dependentActions.length})
+              </h4>
+              <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
+                <p className="text-xs text-orange-700 mb-2">
+                  These additional permissions are required to successfully call this action:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {action.dependentActions.map((depAction) => (
+                    <code 
+                      key={depAction}
+                      className="text-xs px-2 py-1 rounded font-mono bg-white text-orange-800 border border-orange-200"
+                    >
+                      {depAction}
+                    </code>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Tag Support - Mobile View */}
           <div className="sm:hidden flex flex-wrap gap-2 mt-3">
             <div className="flex items-center gap-1 text-sm">

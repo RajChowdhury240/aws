@@ -1,8 +1,10 @@
 export interface IAMAction {
   name: string;
+  description?: string;
   accessLevel: string;
   conditionKeys: string[];
   resources: string[];
+  dependentActions: string[];
   supportsResourceLevelPermissions: boolean;
   properties: {
     IsList?: boolean;
@@ -49,4 +51,5 @@ export interface FilterState {
   hasResourceTag: boolean | null;
   hasTagKeys: boolean | null;
   supportsResourceLevel: boolean | null;
+  hasDependentActions: boolean | null;
 }

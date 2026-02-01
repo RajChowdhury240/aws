@@ -46,6 +46,7 @@ export default function Home() {
     hasResourceTag: null,
     hasTagKeys: null,
     supportsResourceLevel: null,
+    hasDependentActions: null,
   });
 
   // Load data on mount
@@ -93,7 +94,8 @@ export default function Home() {
       filters.hasRequestTag === null &&
       filters.hasResourceTag === null &&
       filters.hasTagKeys === null &&
-      filters.supportsResourceLevel === null;
+      filters.supportsResourceLevel === null &&
+      filters.hasDependentActions === null;
     
     if (hasNoFilters) {
       return allActionsWithSearch;
@@ -131,6 +133,12 @@ export default function Home() {
       // Resource level permissions filter
       if (filters.supportsResourceLevel !== null && 
           action.supportsResourceLevelPermissions !== filters.supportsResourceLevel) {
+        return false;
+      }
+
+      // Dependent actions filter
+      if (filters.hasDependentActions !== null && 
+          (action.dependentActions?.length > 0) !== filters.hasDependentActions) {
         return false;
       }
 
