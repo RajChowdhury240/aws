@@ -11,6 +11,19 @@ interface ActionWithService {
   service: IAMService;
 }
 
+// Get the base path for GitHub Pages
+const getBasePath = () => {
+  if (typeof window !== 'undefined') {
+    // Extract base path from the current URL
+    const pathParts = window.location.pathname.split('/');
+    // If we're on GitHub Pages with a repo name (e.g., /aws/)
+    if (pathParts.length > 1 && pathParts[1]) {
+      return `/${pathParts[1]}`;
+    }
+  }
+  return '';
+};
+
 export default function Home() {
   const [data, setData] = useState<IAMData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,9 +39,14 @@ export default function Home() {
   });
 
   useEffect(() => {
-    fetch('aws-iam-consolidated.json')
+    const basePath = getBasePath();
+    const dataUrl = `${basePath}/aws-iam-consolidated.json`.replace(/\/+/g, '/');
+    
+    console.log('Fetching data from:', dataUrl);
+    
+    fetch(dataUrl)
       .then((res) => {
-        if (!res.ok) throw new Error('Failed to load data');
+        if (!res.ok) throw new Error(`Failed to load data: ${res.status} ${res.statusText}`);
         return res.json();
       })
       .then((data: IAMData) => {
@@ -36,6 +54,7 @@ export default function Home() {
         setLoading(false);
       })
       .catch((err) => {
+        console.error('Fetch error:', err);
         setError(err.message);
         setLoading(false);
       });
