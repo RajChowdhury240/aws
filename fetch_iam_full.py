@@ -166,8 +166,9 @@ def scrape_service_data(service_name):
                         actions.append(action_data)
                         current_action = action_data
 
-                    elif num_cells == 3 and current_action:
-                        # This is a continuation row with additional resources
+                    elif num_cells >= 3 and current_action:
+                        # This is a continuation row - could have resources, condition keys, or dependent actions
+                        # Cell 0: Additional resources
                         resource_cell = cells[0]
                         resource_links = resource_cell.find_all("a")
                         for link in resource_links:
@@ -181,6 +182,48 @@ def scrape_service_data(service_name):
                                     current_action[
                                         "supportsResourceLevelPermissions"
                                     ] = True
+
+                        # Cell 1: Additional condition keys (in rowspan continuation rows)
+                        if num_cells > 1:
+                            condition_cell = cells[1]
+                            condition_links = condition_cell.find_all("a")
+                            for link in condition_links:
+                                condition_key = link.get_text().strip()
+                                if (
+                                    condition_key
+                                    and ":" in condition_key
+                                    and condition_key
+                                    not in current_action["conditionKeys"]
+                                ):
+                                    current_action["conditionKeys"].append(
+                                        condition_key
+                                    )
+
+                        # Cell 2: Additional dependent actions (in rowspan continuation rows)
+                        if num_cells > 2:
+                            dependent_cell = cells[2]
+                            cell_text = dependent_cell.get_text().strip()
+                            pattern = r"([a-z0-9-]+):([A-Z][a-zA-Z0-9]+)"
+                            matches = re.findall(pattern, cell_text)
+                            for match in matches:
+                                dep_action = f"{match[0]}:{match[1]}"
+                                if dep_action not in current_action["dependentActions"]:
+                                    current_action["dependentActions"].append(
+                                        dep_action
+                                    )
+
+                        # Update tag flags after processing continuation row
+                        current_action["hasRequestTag"] = any(
+                            "RequestTag" in key
+                            for key in current_action["conditionKeys"]
+                        )
+                        current_action["hasResourceTag"] = any(
+                            "ResourceTag" in key
+                            for key in current_action["conditionKeys"]
+                        )
+                        current_action["hasTagKeys"] = any(
+                            "TagKeys" in key for key in current_action["conditionKeys"]
+                        )
 
             # Resources table
             elif "Resource types" in headers and "ARN" in headers:
