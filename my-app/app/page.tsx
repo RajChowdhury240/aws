@@ -26,7 +26,7 @@ export default function Home() {
   });
 
   useEffect(() => {
-    fetch('/aws-iam-consolidated.json')
+    fetch('aws-iam-consolidated.json')
       .then((res) => {
         if (!res.ok) throw new Error('Failed to load data');
         return res.json();
