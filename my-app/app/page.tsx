@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useTransition, useCallback } from 'react';
 import { IAMData, IAMAction, IAMService, FilterState } from '@/types/iam';
 import { FilterPanel } from '@/components/FilterPanel';
 import { ActionCard } from '@/components/ActionCard';
@@ -14,9 +14,7 @@ interface ActionWithService {
 // Get the base path for GitHub Pages
 const getBasePath = () => {
   if (typeof window !== 'undefined') {
-    // Extract base path from the current URL
     const pathParts = window.location.pathname.split('/');
-    // If we're on GitHub Pages with a repo name (e.g., /aws/)
     if (pathParts.length > 1 && pathParts[1]) {
       return `/${pathParts[1]}`;
     }
@@ -24,10 +22,22 @@ const getBasePath = () => {
   return '';
 };
 
+// Precompute searchable strings for better performance
+const precomputeSearchData = (allActions: ActionWithService[]) => {
+  return allActions.map(({ action, service }) => ({
+    action,
+    service,
+    searchString: `${service.service}:${action.name}`.toLowerCase(),
+  }));
+};
+
 export default function Home() {
   const [data, setData] = useState<IAMData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [displayedCount, setDisplayedCount] = useState(50); // Virtual scrolling - only show first 50
+  
   const [filters, setFilters] = useState<FilterState>({
     search: '',
     service: 'All',
@@ -38,11 +48,10 @@ export default function Home() {
     supportsResourceLevel: null,
   });
 
+  // Load data on mount
   useEffect(() => {
     const basePath = getBasePath();
     const dataUrl = `${basePath}/aws-iam-consolidated.json`.replace(/\/+/g, '/');
-    
-    console.log('Fetching data from:', dataUrl);
     
     fetch(dataUrl)
       .then((res) => {
@@ -60,27 +69,42 @@ export default function Home() {
       });
   }, []);
 
-  const allActions: ActionWithService[] = useMemo(() => {
+  // Precomputed action data for fast filtering
+  const allActionsWithSearch = useMemo(() => {
     if (!data) return [];
-    
     const actions: ActionWithService[] = [];
     for (const service of data.services) {
       for (const action of service.actions) {
         actions.push({ action, service });
       }
     }
-    return actions;
+    return precomputeSearchData(actions);
   }, [data]);
 
+  // Optimized filter function
   const filteredActions = useMemo(() => {
-    return allActions.filter(({ action, service }) => {
-      // Search filter
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        const actionName = `${service.service}:${action.name}`.toLowerCase();
-        if (!actionName.includes(searchLower)) {
-          return false;
-        }
+    if (!data) return [];
+    
+    // Quick filter - check if any filters are active
+    const hasNoFilters = 
+      !filters.search &&
+      filters.service === 'All' &&
+      filters.accessLevel === 'All' &&
+      filters.hasRequestTag === null &&
+      filters.hasResourceTag === null &&
+      filters.hasTagKeys === null &&
+      filters.supportsResourceLevel === null;
+    
+    if (hasNoFilters) {
+      return allActionsWithSearch;
+    }
+    
+    const searchLower = filters.search.toLowerCase();
+    
+    return allActionsWithSearch.filter(({ action, service, searchString }) => {
+      // Search filter - use precomputed string
+      if (filters.search && !searchString.includes(searchLower)) {
+        return false;
       }
 
       // Service filter
@@ -112,7 +136,31 @@ export default function Home() {
 
       return true;
     });
-  }, [allActions, filters]);
+  }, [allActionsWithSearch, filters, data]);
+
+  // Reset displayed count when filters change
+  useEffect(() => {
+    setDisplayedCount(50);
+  }, [filters]);
+
+  // Load more on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000) {
+        setDisplayedCount(prev => Math.min(prev + 50, filteredActions.length));
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [filteredActions.length]);
+
+  // Wrap filter changes in startTransition for smooth UI
+  const handleFilterChange = useCallback((newFilters: FilterState) => {
+    startTransition(() => {
+      setFilters(newFilters);
+    });
+  }, []);
 
   const serviceNames = useMemo(() => {
     if (!data) return [];
@@ -121,11 +169,11 @@ export default function Home() {
 
   const stats = useMemo(() => {
     if (!data) return null;
-    const totalActions = allActions.length;
-    const actionsWithRequestTag = allActions.filter(({ action }) => action.hasRequestTag).length;
-    const actionsWithResourceTag = allActions.filter(({ action }) => action.hasResourceTag).length;
-    const actionsWithTagKeys = allActions.filter(({ action }) => action.hasTagKeys).length;
-    const actionsWithResourceLevel = allActions.filter(({ action }) => action.supportsResourceLevelPermissions).length;
+    const totalActions = allActionsWithSearch.length;
+    const actionsWithRequestTag = allActionsWithSearch.filter(({ action }) => action.hasRequestTag).length;
+    const actionsWithResourceTag = allActionsWithSearch.filter(({ action }) => action.hasResourceTag).length;
+    const actionsWithTagKeys = allActionsWithSearch.filter(({ action }) => action.hasTagKeys).length;
+    const actionsWithResourceLevel = allActionsWithSearch.filter(({ action }) => action.supportsResourceLevelPermissions).length;
 
     return {
       totalActions,
@@ -134,7 +182,10 @@ export default function Home() {
       actionsWithTagKeys,
       actionsWithResourceLevel,
     };
-  }, [allActions, data]);
+  }, [allActionsWithSearch, data]);
+
+  // Slice for virtual scrolling
+  const visibleActions = filteredActions.slice(0, displayedCount);
 
   if (loading) {
     return (
@@ -216,9 +267,10 @@ export default function Home() {
             <div className="sticky top-24">
               <FilterPanel
                 filters={filters}
-                onFilterChange={setFilters}
+                onFilterChange={handleFilterChange}
                 services={serviceNames}
                 totalResults={filteredActions.length}
+                isPending={isPending}
               />
             </div>
           </div>
@@ -232,15 +284,37 @@ export default function Home() {
                 <p className="text-gray-600">Try adjusting your filters to see more results.</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {filteredActions.map(({ action, service }) => (
-                  <ActionCard
-                    key={`${service.service}:${action.name}`}
-                    action={action}
-                    service={service}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="mb-4 flex items-center justify-between">
+                  <p className="text-sm text-gray-600">
+                    Showing {visibleActions.length.toLocaleString()} of {filteredActions.length.toLocaleString()} actions
+                    {displayedCount < filteredActions.length && ' (scroll to load more)'}
+                  </p>
+                  {isPending && (
+                    <div className="flex items-center gap-2 text-sm text-blue-600">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Filtering...
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-4">
+                  {visibleActions.map(({ action, service }) => (
+                    <ActionCard
+                      key={`${service.service}:${action.name}`}
+                      action={action}
+                      service={service}
+                    />
+                  ))}
+                </div>
+                {displayedCount < filteredActions.length && (
+                  <div className="text-center py-8">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg text-gray-600">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Loading more...
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
